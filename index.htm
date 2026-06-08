@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>3D Animation | Hi, I'm akramn Ismail</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Poppins', 'Segoe UI', sans-serif;
+        }
+
+        /* Loading overlay - fades out when 3D is ready */
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #0a0a2a, #000000);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            transition: opacity 1s ease, visibility 1s ease;
+            pointer-events: none;
+            backdrop-filter: blur(2px);
+        }
+
+        .loader-content {
+            text-align: center;
+            color: white;
+            font-size: 1.4rem;
+            letter-spacing: 2px;
+            text-shadow: 0 0 15px rgba(0,255,255,0.7);
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            margin: 20px auto;
+            border: 4px solid rgba(255,255,255,0.2);
+            border-top: 4px solid #00ffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .instruction {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            color: rgba(255,255,255,0.6);
+            background: rgba(0,0,0,0.5);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-family: monospace;
+            z-index: 50;
+            pointer-events: none;
+            backdrop-filter: blur(4px);
+        }
+
+        @media (max-width: 600px) {
+            .instruction { font-size: 9px; bottom: 10px; left: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading-overlay">
+        <div class="loader-content">
+            <div class="spinner"></div>
+            <div>Crafting 3D Experience...</div>
+            <div style="font-size:0.8rem; margin-top:10px;">✨ Hi I'm akramn Ismail ✨</div>
+        </div>
+    </div>
+    <div class="instruction">🖱️ Drag to rotate view | Scroll to zoom | 3D Text + Particles</div>
+
+    <!-- Import Three.js core and add-ons from CDN -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+        // --- Setup Scene, Camera, Renderers ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050b1a);
+        scene.fog = new THREE.FogExp2(0x050b1a, 0.008); // subtle fog for depth
+
+        // Main WebGL Renderer
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true; // enable shadows for depth
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        // CSS2DRenderer for a floating label (additional flair)
+        const labelRenderer = new CSS2DRenderer();
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0px';
+        labelRenderer.domElement.style.left = '0px';
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        document.body.appendChild(labelRenderer.domElement);
+
+        // --- Camera: Positioned for nice framing
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(3, 2, 7);
+        camera.lookAt(0, 0, 0);
+
+        // --- Controls for interactive exploration
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;      // smooth inertia
+        controls.dampingFactor = 0.05;
+        controls.autoRotate = false;
+        controls.enableZoom = true;
+        controls.enablePan = true;
+        controls.zoomSpeed = 1.2;
+        controls.rotateSpeed = 1.0;
+        controls.target.set(0, 0.2, 0);
+
+        // --- Lighting System: rich and dynamic
+        // Ambient light
+        const ambientLight = new THREE.AmbientLight(0x404060);
+        scene.add(ambientLight);
+        
+        // Main directional light (shadow casting)
+        const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        mainLight.position.set(3, 5, 2);
+        mainLight.castShadow = true;
+        mainLight.receiveShadow = true;
+        mainLight.shadow.mapSize.width = 1024;
+        mainLight.shadow.mapSize.height = 1024;
+        mainLight.shadow.camera.near = 0.5;
+        mainLight.shadow.camera.far = 10;
+        mainLight.shadow.camera.left = -5;
+        mainLight.shadow.camera.right = 5;
+        mainLight.shadow.camera.top = 5;
+        mainLight.shadow.camera.bottom = -5;
+        scene.add(mainLight);
+        
+        // Fill light from below (rim effect)
+        const fillLight = new THREE.PointLight(0x4466cc, 0.5);
+        fillLight.position.set(0, -2, 0);
+        scene.add(fillLight);
+        
+        // Back rim light (golden)
+        const backLight = new THREE.PointLight(0xffaa66, 0.7);
+        backLight.position.set(-1, 1, -3);
+        scene.add(backLight);
+        
+        // Colorful moving point lights for dynamic atmosphere
+        const colorLight1 = new THREE.PointLight(0xff44aa, 0.6);
+        colorLight1.position.set(2, 1, 2);
+        scene.add(colorLight1);
+        
+        const colorLight2 = new THREE.PointLight(0x44ffaa, 0.6);
+        colorLight2.position.set(-2, 1.5, 2.5);
+        scene.add(colorLight2);
+        
+        // Additional soft fill from front
+        const frontFill = new THREE.PointLight(0x88aaff, 0.4);
+        frontFill.position.set(0, 1, 3);
+        scene.add(frontFill);
+        
+        // Helper: small decorative grid floor (translucent, to ground the scene)
+        const gridHelper = new THREE.GridHelper(12, 20, 0x88aaff, 0x335588);
+        gridHelper.position.y = -1.2;
+        gridHelper.material.transparent = true;
+        gridHelper.material.opacity = 0.25;
+        scene.add(gridHelper);
+        
+        // Simple reflective plane (invisible but catches shadow? Not needed, grid enough)
+        
+        // --- Starfield Particle System (background shimmer)
+        const starCount = 1800;
+        const starGeometry = new THREE.BufferGeometry();
+        const starPositions = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount; i++) {
+            // Spread in a sphere-like region
+            starPositions[i*3] = (Math.random() - 0.5) * 200;
+            starPositions[i*3+1] = (Math.random() - 0.5) * 100;
+            starPositions[i*3+2] = (Math.random() - 0.5) * 80 - 40;
+        }
+        starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        const starMaterial = new THREE.PointsMaterial({
+            color: 0xffffff,
+            size: 0.12,
+            transparent: true,
+            opacity: 0.7,
+            blending: THREE.AdditiveBlending
+        });
+        const stars = new THREE.Points(starGeometry, starMaterial);
+        scene.add(stars);
+        
+        // Twinkling stars variant: second layer of tiny stars
+        const starField2Geo = new THREE.BufferGeometry();
+        const starPos2 = new Float32Array(1200 * 3);
+        for (let i = 0; i < 1200; i++) {
+            starPos2[i*3] = (Math.random() - 0.5) * 300;
+            starPos2[i*3+1] = (Math.random() - 0.5) * 150;
+            starPos2[i*3+2] = (Math.random() - 0.5) * 120 - 60;
+        }
+        starField2Geo.setAttribute('position', new THREE.BufferAttribute(starPos2, 3));
+        const starMat2 = new THREE.PointsMaterial({ color: 0xaaccff, size: 0.08, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending });
+        const stars2 = new THREE.Points(starField2Geo, starMat2);
+        scene.add(stars2);
+        
+        // --- Decorative Floating Orbs & Rings (to enhance 3D depth)
+        // 1. Rotating torus knot (stylish)
+        const knotGeo = new THREE.TorusKnotGeometry(0.9, 0.12, 128, 16, 3, 4);
+        const knotMat = new THREE.MeshStandardMaterial({ color: 0x33ccff, emissive: 0x115588, metalness: 0.8, roughness: 0.3 });
+        const knot = new THREE.Mesh(knotGeo, knotMat);
+        knot.castShadow = true;
+        knot.position.y = 0.1;
+        scene.add(knot);
+        
+        // 2. Outer ring (rotating wireframe)
+        const ringGeo = new THREE.TorusGeometry(1.4, 0.05, 64, 200);
+        const ringMat = new THREE.MeshStandardMaterial({ color: 0xffaa55, emissive: 0x442200, metalness: 0.9 });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.castShadow = true;
+        ring.position.y = 0.0;
+        scene.add(ring);
+        
+        // 3. Small orbiting particles around text (energy effect)
+        const orbCount = 300;
+        const orbGeometry = new THREE.BufferGeometry();
+        const orbPositions = new Float32Array(orbCount * 3);
+        for (let i = 0; i < orbCount; i++) {
+            // random positions within a sphere radius 1.6
+            const radius = 1.4 + Math.random() * 0.4;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            orbPositions[i*3] = radius * Math.sin(phi) * Math.cos(theta);
+            orbPositions[i*3+1] = radius * Math.sin(phi) * Math.sin(theta) + 0.2;
+            orbPositions[i*3+2] = radius * Math.cos(phi);
+        }
+        orbGeometry.setAttribute('position', new THREE.BufferAttribute(orbPositions, 3));
+        const orbMaterial = new THREE.PointsMaterial({ color: 0xffaa77, size: 0.035, blending: THREE.AdditiveBlending });
+        const orbitingDust = new THREE.Points(orbGeometry, orbMaterial);
+        scene.add(orbitingDust);
+        
+        // Also add glowing floating cubes (tiny)
+        const floatCubes = [];
+        for (let i = 0; i < 60; i++) {
+            const boxGeo = new THREE.BoxGeometry(0.06, 0.06, 0.06);
+            const boxMat = new THREE.MeshStandardMaterial({ color: 0x77aaff, emissive: 0x2266aa, metalness: 0.5 });
+            const cube = new THREE.Mesh(boxGeo, boxMat);
+            const rad = 1.8;
+            cube.userData = {
+                angleX: Math.random() * Math.PI * 2,
+                angleY: Math.random() * Math.PI * 2,
+                radius: 1.5 + Math.random() * 0.8,
+                speed: 0.005 + Math.random() * 0.01
+            };
+            cube.position.set(
+                Math.cos(cube.userData.angleX) * cube.userData.radius,
+                Math.sin(cube.userData.angleY) * 1.2,
+                Math.sin(cube.userData.angleX) * cube.userData.radius
+            );
+            scene.add(cube);
+            floatCubes.push(cube);
+        }
+        
+        // --- MAIN 3D TEXT: "Hi I'm" + "akramn Ismail" using TextGeometry with shiny material
+        const textGroup = new THREE.Group();
+        let textReady = false;
+        
+        // Load font from Three.js examples (reliable)
+        const loader = new THREE.FontLoader();
+        // Using helvetiker font for elegant extruded look
+        const fontUrl = 'https://threejs.org/examples/fonts/helvetiker_regular.typeface.json';
+        
+        // Material for main text: metallic gold/cyan with emissive spark
+        const textMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffcc77,
+            emissive: 0x442200,
+            metalness: 0.85,
+            roughness: 0.25,
+            flatShading: false
+        });
+        
+        // Secondary material for slight outline effect? we'll just use same but add second copy?
+        // Creating two text meshes: "Hi I'm" and "akramn Ismail"
+        loader.load(fontUrl, (font) => {
+            // Geometry options
+            const geoOptions = {
+                font: font,
+                size: 0.48,
+                height: 0.12,
+                curveSegments: 6,
+                bevelEnabled: true,
+                bevelThickness: 0.03,
+                bevelSize: 0.02,
+                bevelSegments: 5
+            };
+            
+            // First line: "Hi I'm"
+            const textGeo1 = new THREE.TextGeometry("Hi I'm", geoOptions);
+            textGeo1.computeBoundingBox();
+            const box1 = textGeo1.boundingBox;
+            const centerX1 = -(box1.max.x + box1.min.x) / 2;
+            
+            const textMesh1 = new THREE.Mesh(textGeo1, textMaterial);
+            textMesh1.position.set(centerX1, 0.55, 0);
+            textMesh1.castShadow = true;
+            textMesh1.receiveShadow = false;
+            
+            // Second line: "akramn Ismail" (slightly larger size and adjustment)
+            const geoOptions2 = {
+                font: font,
+                size: 0.44,
+                height: 0.12,
+                curveSegments: 6,
+                bevelEnabled: true,
+                bevelThickness: 0.03,
+                bevelSize: 0.02,
+                bevelSegments: 5
+            };
+            const textGeo2 = new THREE.TextGeometry("akramn Ismail", geoOptions2);
+            textGeo2.computeBoundingBox();
+            const box2 = textGeo2.boundingBox;
+            const centerX2 = -(box2.max.x + box2.min.x) / 2;
+            
+            const textMesh2 = new THREE.Mesh(textGeo2, textMaterial);
+            textMesh2.position.set(centerX2, -0.38, 0);
+            textMesh2.castShadow = true;
+            
+            // Optional: Add a thin glowing edge effect using wireframe copy? Not needed but create subtle aura
+            const glowMaterial = new THREE.MeshBasicMaterial({ color: 0xffaa66, transparent: true, opacity: 0.15 });
+            const glowMesh1 = new THREE.Mesh(textGeo1, glowMaterial);
+            const glowMesh2 = new THREE.Mesh(textGeo2, glowMaterial);
+            glowMesh1.position.copy(textMesh1.position);
+            glowMesh2.position.copy(textMesh2.position);
+            
+            textGroup.add(textMesh1, textMesh2, glowMesh1, glowMesh2);
+            
+            // Also add a decorative underline or orb between lines? small line strip
+            const lineMat = new THREE.MeshStandardMaterial({ color: 0x88aaff, emissive: 0x2266aa });
+            const underline = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.04, 0.1), lineMat);
+            underline.position.set(0, -0.1, 0.2);
+            textGroup.add(underline);
+            
+            scene.add(textGroup);
+            
+            // Fade out loading overlay once text appears
+            setTimeout(() => {
+                const overlay = document.getElementById('loading-overlay');
+                if (overlay) {
+                    overlay.style.opacity = '0';
+                    setTimeout(() => {
+                        overlay.style.visibility = 'hidden';
+                    }, 1000);
+                }
+            }, 600);
+            textReady = true;
+        }, undefined, (error) => {
+            console.error('Font loading error, but continuing with fallback CSS label', error);
+            // Fallback: Add CSS2D text if font fails
+            const fallbackDiv = document.createElement('div');
+            fallbackDiv.textContent = "✨ Hi I'm akramn Ismail ✨";
+            fallbackDiv.style.color = "#ffdd99";
+            fallbackDiv.style.fontSize = "2rem";
+            fallbackDiv.style.fontWeight = "bold";
+            fallbackDiv.style.textShadow = "0 0 15px #00aaff";
+            fallbackDiv.style.fontFamily = "Poppins, sans-serif";
+            fallbackDiv.style.background = "rgba(0,0,0,0.5)";
+            fallbackDiv.style.padding = "12px 24px";
+            fallbackDiv.style.borderRadius = "40px";
+            fallbackDiv.style.backdropFilter = "blur(8px)";
+            fallbackDiv.style.border = "1px solid rgba(255,200,100,0.6)";
+            const css2Dlabel = new CSS2DObject(fallbackDiv);
+            css2Dlabel.position.set(0, 0.2, 0);
+            scene.add(css2Dlabel);
+            
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) {
+                overlay.style.opacity = '0';
+                setTimeout(() => {
+                    overlay.style.visibility = 'hidden';
+                }, 800);
+            }
+            textReady = true;
+        });
+        
+        // --- Extra: animated floating particles around textGroup (energy sparks)
+        const sparkCount = 800;
+        const sparkGeo = new THREE.BufferGeometry();
+        const sparkPositions = new Float32Array(sparkCount * 3);
+        for (let i = 0; i < sparkCount; i++) {
+            sparkPositions[i*3] = (Math.random() - 0.5) * 3.2;
+            sparkPositions[i*3+1] = (Math.random() - 0.5) * 2.2;
+            sparkPositions[i*3+2] = (Math.random() - 0.5) * 2;
+        }
+        sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPositions, 3));
+        const sparkMat = new THREE.PointsMaterial({ color: 0xffaa88, size: 0.025, transparent: true, blending: THREE.AdditiveBlending });
+        const sparks = new THREE.Points(sparkGeo, sparkMat);
+        scene.add(sparks);
+        
+        // Additional glow effect using a transparent sphere around text (halo)
+        const haloGeometry = new THREE.SphereGeometry(1.35, 32, 32);
+        const haloMaterial = new THREE.MeshBasicMaterial({
+            color: 0x3377ff,
+            transparent: true,
+            opacity: 0.07,
+            side: THREE.BackSide
+        });
+        const halo = new THREE.Mesh(haloGeometry, haloMaterial);
+        scene.add(halo);
+        
+        // --- Animation & Time management
+        let time = 0;
+        
+        // Rotate stars slowly
+        function animateStars() {
+            stars.rotation.y += 0.0005;
+            stars.rotation.x += 0.0003;
+            stars2.rotation.y -= 0.0002;
+            stars2.rotation.z += 0.0001;
+        }
+        
+        // Animate decorative ring and knot and light colors
+        function animateDeco() {
+            knot.rotation.x += 0.008;
+            knot.rotation.y += 0.012;
+            ring.rotation.z += 0.005;
+            ring.rotation.x += 0.003;
+            ring.rotation.y += 0.007;
+            
+            // Orbiting dust cloud rotation
+            orbitingDust.rotation.y += 0.01;
+            orbitingDust.rotation.x += 0.005;
+            
+            // Floating cubes revolve slowly around Y axis
+            floatCubes.forEach(cube => {
+                cube.userData.angleX += cube.userData.speed;
+                cube.userData.angleY += 0.008;
+                const rad = cube.userData.radius;
+                cube.position.x = Math.cos(cube.userData.angleX) * rad;
+                cube.position.z = Math.sin(cube.userData.angleX) * rad;
+                cube.position.y = Math.sin(cube.userData.angleY) * 1.1;
+            });
+            
+            // Sparks drift slowly
+            sparks.rotation.y += 0.002;
+            sparks.rotation.x += 0.001;
+        }
+        
+        // Dynamic colored lights movement
+        function animateLights() {
+            const t = performance.now() * 0.002;
+            colorLight1.position.x = 2.2 + Math.sin(t) * 0.8;
+            colorLight1.position.z = 2 + Math.cos(t * 0.7) * 1;
+            colorLight2.position.x = -2 + Math.cos(t * 0.9) * 1;
+            colorLight2.position.z = 2.5 + Math.sin(t * 0.5) * 1.2;
+            
+            // Slight intensity pulse
+            const intensityPulse = 0.5 + Math.sin(t * 2) * 0.2;
+            colorLight1.intensity = 0.5 + Math.sin(t * 1.3) * 0.2;
+            colorLight2.intensity = 0.5 + Math.cos(t * 1.8) * 0.2;
+            backLight.intensity = 0.6 + Math.sin(t) * 0.2;
+            
+            // Rotate fill light subtle
+            fillLight.position.x = Math.sin(t * 0.5) * 1.2;
+            fillLight.position.z = Math.cos(t * 0.7) * 1.5;
+        }
+        
+        // Rotate main text group (eye-catching)
+        function animateTextGroup() {
+            if (textGroup) {
+                textGroup.rotation.y = Math.sin(time * 0.3) * 0.25;
+                textGroup.rotation.x = Math.sin(time * 0.5) * 0.08;
+                textGroup.rotation.z = Math.sin(time * 0.4) * 0.05;
+                // gentle floating motion
+                textGroup.position.y = Math.sin(time * 1.2) * 0.03;
+            }
+            halo.scale.setScalar(1 + Math.sin(time * 1.5) * 0.02);
+        }
+        
+        // CSS2D label extra movement if fallback exists but not needed
+        
+        // Camera slight auto orbit? Not needed, but we make controls optional, but we can add idle micro-rotation if no user interaction? not necessary.
+        
+        // Additional: shiny sphere mirror effect? just for background ambiance
+        const backgroundGlow = new THREE.Mesh(
+            new THREE.SphereGeometry(4, 32, 32),
+            new THREE.MeshBasicMaterial({ color: 0x112244, transparent: true, opacity: 0.08, side: THREE.BackSide })
+        );
+        scene.add(backgroundGlow);
+        
+        // --- Main Render Loop
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.016; // approximate delta time factor
+            
+            animateStars();
+            animateDeco();
+            animateLights();
+            animateTextGroup();
+            
+            // Update controls if needed
+            controls.update(); // only updates if user interaction or damping enabled
+            
+            // Rotate torus knot additional rotation independent
+            knot.rotation.z += 0.005;
+            
+            // Rotate background particle field independently
+            stars.rotation.y += 0.0003;
+            stars2.rotation.x += 0.0002;
+            
+            // Update sparks positions relative to text group? just static float
+            // but we can pulsate opacity
+            const sparklePulse = 0.5 + Math.sin(time * 8) * 0.3;
+            sparkMat.color.setHSL(0.12, 1.0, 0.6);
+            
+            // For floating orbs rotation speed
+            orbitingDust.rotation.z += 0.007;
+            
+            // Render main scene
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+        }
+        
+        animate();
+        
+        // --- Handle Window Resize
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Small console flair
+        console.log('3D Scene Ready | "Hi I\'m akramn Ismail"');
+        
+        // Force hide loading overlay after max 4 seconds if font loading stuck
+        setTimeout(() => {
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay && overlay.style.visibility !== 'hidden') {
+                overlay.style.opacity = '0';
+                setTimeout(() => {
+                    overlay.style.visibility = 'hidden';
+                }, 500);
+            }
+        }, 4000);
+    </script>
+</body>
+</html>
